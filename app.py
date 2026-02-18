@@ -8,12 +8,13 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from io import BytesIO
 
-from dotenv import load_dotenv
+from typing import Optional
+from langchain_core.output_parsers import OutputFixingParser
 
 
 # ------------------ Setup ------------------
 
-load_dotenv()
+
 
 
 st.set_page_config(
@@ -37,15 +38,20 @@ llm = HuggingFaceEndpoint(
 model = ChatHuggingFace(llm=llm)
 
 class summarize(BaseModel):
-    Overview : str =  Field(description="Give short intro of reaserch pepar...")
-    Key_insights : str = Field(description="Give Appropriate insights")
-    Mathematical_and_Technical : str = Field(description=("Provide mathematical and technical details. Write equations using LaTeX format inside $$ $$ blocks. Do NOT write formulas inline."))
-    Analogies_and_Intuitive_Explanations : str = Field(description="Give ANologies and intutive Explanation but informative in short 2 to 3 line")
-    Critical_Perspective : str = Field(description="Explain on basis of pepar in short")
-    Clarity_and_Accessibility : str = Field(description="Clear and short answer")
-    Important: str = Field(description="Give importance in clear way in short")
+    Overview: Optional[str] = Field(default="Insufficient information available")
+    Key_insights: Optional[str] = Field(default="Insufficient information available")
+    Mathematical_and_Technical: Optional[str] = Field(default="Insufficient information available")
+    Analogies_and_Intuitive_Explanations: Optional[str] = Field(default="Insufficient information available")
+    Critical_Perspective: Optional[str] = Field(default="Insufficient information available")
+    Clarity_and_Accessibility: Optional[str] = Field(default="Insufficient information available")
+    Important: Optional[str] = Field(default="Insufficient information available")
 
 parser_summarize = PydanticOutputParser(pydantic_object=summarize)
+
+fixing_parser = OutputFixingParser.from_llm(
+    parser=parser_summarize,
+    llm=model
+)
 
 
 prompt = PromptTemplate(
@@ -100,7 +106,7 @@ partial_variables={"formate_instruction":parser_summarize.get_format_instruction
     
 )
 
-chain = prompt | model | parser_summarize
+chain = prompt | model | fixing_parser
 
 # ------------------ Sidebar Controls ------------------
 st.sidebar.header("Controls")
