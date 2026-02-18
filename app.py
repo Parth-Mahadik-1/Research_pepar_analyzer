@@ -2,14 +2,15 @@ import streamlit as st
 from langchain_huggingface import HuggingFaceEndpoint , ChatHuggingFace
 from pydantic import BaseModel , Field
 from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser , StrOutputParser
+from langchain_core.output_parsers import PydanticOutputParser , StrOutputParser , OutputFixingParser
+
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from io import BytesIO
 
 from typing import Optional
-from langchain_core.output_parsers import OutputFixingParser
+
 
 
 
