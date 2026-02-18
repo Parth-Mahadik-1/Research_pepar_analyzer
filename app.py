@@ -2,7 +2,7 @@ import streamlit as st
 from langchain_huggingface import HuggingFaceEndpoint , ChatHuggingFace
 from pydantic import BaseModel , Field
 from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser , StrOutputParser , OutputFixingParser
+from langchain_core.output_parsers import PydanticOutputParser , StrOutputParser 
 
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
@@ -50,10 +50,7 @@ class summarize(BaseModel):
 
 parser_summarize = PydanticOutputParser(pydantic_object=summarize)
 
-fixing_parser = OutputFixingParser.from_llm(
-    parser=parser_summarize,
-    llm=model
-)
+
 
 
 prompt = PromptTemplate(
@@ -108,7 +105,7 @@ partial_variables={"formate_instruction":parser_summarize.get_format_instruction
     
 )
 
-chain = prompt | model | fixing_parser
+chain = prompt | model | parser_summarize
 
 # ------------------ Sidebar Controls ------------------
 st.sidebar.header("Controls")
