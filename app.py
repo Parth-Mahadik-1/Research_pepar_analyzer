@@ -2,21 +2,19 @@ import streamlit as st
 from langchain_huggingface import HuggingFaceEndpoint , ChatHuggingFace
 from pydantic import BaseModel , Field
 from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser , StrOutputParser , OutputFixingParser
-
+from langchain_core.output_parsers import PydanticOutputParser , StrOutputParser
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from io import BytesIO
+from reportlab.lib.styles import ParagraphStyle
 
-from typing import Optional
-
-
+from dotenv import load_dotenv
 
 
 # ------------------ Setup ------------------
 
-
+load_dotenv()
 
 
 st.set_page_config(
@@ -32,83 +30,79 @@ st.write("Summarize academic papers with technical depth and clarity.")
 
 
 llm = HuggingFaceEndpoint(
-    repo_id = "deepseek-ai/DeepSeek-V3.1",
+    repo_id = "deepseek-ai/DeepSeek-R1",
     task = "text-generation",
     temperature = 0.7,
 )
 
 model = ChatHuggingFace(llm=llm)
 
-class summarize(BaseModel):
-    Overview: Optional[str] = Field(default="Insufficient information available")
-    Key_insights: Optional[str] = Field(default="Insufficient information available")
-    Mathematical_and_Technical: Optional[str] = Field(default="Insufficient information available")
-    Analogies_and_Intuitive_Explanations: Optional[str] = Field(default="Insufficient information available")
-    Critical_Perspective: Optional[str] = Field(default="Insufficient information available")
-    Clarity_and_Accessibility: Optional[str] = Field(default="Insufficient information available")
-    Important: Optional[str] = Field(default="Insufficient information available")
+class PaperSummary(BaseModel):
+    Overview: str = Field(
+        description="High-level objective, problem statement, and approach of the paper"
+    )
+    Key_insights: str = Field(
+        description="Main findings, results, or contributions of the paper"
+        "Write mathematical formulas using LaTeX blocks ($$ ... $$). "
+        "Avoid inline equations."
+    )
+    
+    Basic_Info: str = Field(
+        description="Paper domain, methodology type, and why it matters"
+    )
 
-parser_summarize = PydanticOutputParser(pydantic_object=summarize)
 
-
-fixing_parser = OutputFixingParser.from_llm(
-    parser=parser_summarize,
-    llm=model
-)
+parser = PydanticOutputParser(pydantic_object=PaperSummary)
 
 prompt = PromptTemplate(
 
     template="""
 You are an expert academic writer and technical communicator.
 
-Please create a thorough and well-structured summary of the research paper titled "{paper_input}" using the following specifications:
+Create a concise, technically accurate summary of the research paper titled:
+"{paper_input}"
 
-Explanation Style: {style_input}  
+Explanation Style: {style_input}
 Target Length: {length_input}
 
-Guidelines for the Summary:
-1. **Overview**  
-   - Begin with a brief but clear statement of the paper’s main objective and its importance in the broader field.  
-   - Identify the key research questions, hypotheses, or problems the authors set out to address.  
-   - Describe the methodology, experimental setup, or theoretical framework in sufficient detail for an informed reader to understand the approach.
+Your response MUST strictly follow the JSON format defined below.
+Do NOT add extra keys.
+Do NOT omit any required key.
 
-2. **Key_insights**  
-   - Highlight the principal results, discoveries, or arguments.  
-   - Explain why these findings matter and how they advance current knowledge or practice.
+{format_instructions}
 
-3. **Mathematical_and_Technical **  
-   - Include any critical mathematical equations or algorithms when they are central to understanding the work.  
-   - Present these equations in a clean, readable format and, where appropriate, illustrate the concepts with short, intuitive code snippets or pseudo-code to make them more approachable.
+Guidelines:
 
-4. **Analogies_and_Intuitive_Explanations **  
-   - When concepts are complex, use clear analogies or real-world comparisons to simplify them without losing accuracy.  
-   - Make sure these analogies remain faithful to the technical content.
+1. Overview
+- Clearly state the paper’s main objective and the core problem it addresses.
+- Briefly describe the overall methodology or architectural approach.
+- Keep this section concise and limited to approximately 4 lines.
+- Avoid detailed equations or excessive technical depth here.
 
-5. **Critical_Perspective**  
-   - Note any limitations, open questions, or potential future directions the authors mention.  
-   - Avoid adding unsupported speculation; stick to what can be inferred from the text.
+2. Key_insights
+- Present the most important technical contributions and findings.
+- Explicitly include the central mathematical formulations or functions introduced in the paper.
+- "Write mathematical formulas using LaTeX blocks ($$ ... $$). "
+- "Avoid inline equations."
 
-6. **Clarity_and_Accessibility**  
-   - Ensure the final summary reads smoothly and logically, with appropriate transitions between sections.  
-   - Match the requested style ({style_input}) and stay close to the target length ({length_input}) while preserving accuracy and nuance.
+3. Basic_Info
+- Specify the research domain (e.g., NLP, Machine Learning, Sequence Modeling).
+- Indicate whether the work is theoretical, experimental, or applied.
+- Briefly explain the broader impact or long-term relevance of the work.
 
-Important:  
-If the paper does not provide certain information—for example, specific equations, data details, or conclusions—state clearly: "Insufficient information available" instead of guessing or inventing details.
+Important:
+If the paper does not provide required information, explicitly write:
+"Insufficient information available"
 
-Your goal is to deliver a balanced, precise, and reader-friendly summary that captures both the technical depth and the broader significance of the research.
-\n 
-
-{formate_instruction}
-
-
-"""
-,
-input_variables=["paper_input", "style_input", "length_input"],
-partial_variables={"formate_instruction":parser_summarize.get_format_instructions()}
+Do NOT guess, invent, or add unsupported claims.
+""",
     
+input_variables=["paper_input", "style_input", "length_input"],
+partial_variables={"format_instructions": parser.get_format_instructions()}
+
 )
 
-chain = prompt | model | fixing_parse
+chain = prompt | model | parser
 
 # ------------------ Sidebar Controls ------------------
 st.sidebar.header("Controls")
@@ -155,21 +149,18 @@ def generate_pdf(summary, paper_title):
 
     add_section("Overview", summary.Overview)
     add_section("Key Insights", summary.Key_insights)
-    add_section("Mathematical and Technical Details", summary.Mathematical_and_Technical)
-    add_section("Analogies and Intuitive Explanations", summary.Analogies_and_Intuitive_Explanations)
-    add_section("Critical Perspective", summary.Critical_Perspective)
-    add_section("Clarity and Accessibility", summary.Clarity_and_Accessibility)
-    add_section("Importance of the Study", summary.Important)
+    add_section("Basic Information", summary.Basic_Info)
 
     doc.build(story)
     buffer.seek(0)
     return buffer
 
-def format_math(text):
-    if "$$" in text:
-        st.markdown(text)
-    else:
+def format_math(text): 
+    if "$$" in text: 
+        st.markdown(text) 
+    else: 
         st.write(text)
+
 
 generate = st.sidebar.button("Generate Summary")
 
@@ -177,66 +168,46 @@ generate = st.sidebar.button("Generate Summary")
 
 # ------------------ Generate Summary ------------------
 if generate:
-    log_box.empty()  # clear previous logs
+    log_box.empty()
 
     if not paper_title.strip():
         sidebar_log("Waiting for paper title input")
         st.warning("Please enter a research paper title.")
     else:
         sidebar_log("Paper title received")
-        sidebar_log("Initializing model pipeline")
+        sidebar_log("Invoking LLM")
 
         with st.spinner("Generating summary..."):
             try:
-                sidebar_log("Invoking LLM")
-
                 result = chain.invoke({
                     "paper_input": paper_title,
                     "style_input": style,
                     "length_input": length
                 })
 
-                sidebar_log("Summary generation completed")
-                sidebar_log("Rendering output")
-
-                st.success("Summary Generated Successfully!")
+                sidebar_log("Summary generated successfully")
+                st.success("Summary Generated!")
 
                 pdf_buffer = generate_pdf(result, paper_title)
 
-                # ------------------ Display Output ------------------
+                # -------- Display Output --------
                 st.markdown("### 1. Overview")
                 st.write(result.Overview)
 
-                st.markdown("### 2. Key Insights")
-                st.write(result.Key_insights)
+                st.markdown("### 2.Key_insights")
+                format_math(result.Key_insights)
 
-                st.markdown("### 3. Mathematical and Technical Details")
-
-                math_text = result.Mathematical_and_Technical
-
-                # Render text + equations properly
-                st.markdown(math_text, unsafe_allow_html=False)
-
-
-                st.markdown("### 4. Analogies and Intuitive Explanations")
-                st.write(result.Analogies_and_Intuitive_Explanations)
-
-                st.markdown("### 5. Critical Perspective")
-                st.write(result.Critical_Perspective)
-
-                st.markdown("### 6. Clarity and Accessibility")
-                st.write(result.Clarity_and_Accessibility)
-
-                st.markdown("### 7. Importance of the Study")
-                st.write(result.Important)
+                st.markdown("### 3. Basic Information")
+                st.write(result.Basic_Info)
 
                 st.download_button(
-                label="Download Summary as PDF",
-                data=pdf_buffer,
-                file_name=f"{paper_title.replace(' ', '_')}_summary.pdf",
-                mime="application/pdf"
-)
+                    label="Download Summary as PDF",
+                    data=pdf_buffer,
+                    file_name=f"{paper_title.replace(' ', '_')}_summary.pdf",
+                    mime="application/pdf"
+                )
 
             except Exception as e:
-                sidebar_log("Error occurred during generation")
+                sidebar_log("Error during generation")
                 st.error(f"Error: {e}")
+
