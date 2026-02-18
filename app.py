@@ -9,7 +9,8 @@ from reportlab.lib.pagesizes import A4
 from io import BytesIO
 
 from typing import Optional
-from langchain_core.output_parsers import OutputFixingParser
+from langchain.output_parsers import OutputFixingParser
+
 
 
 # ------------------ Setup ------------------
