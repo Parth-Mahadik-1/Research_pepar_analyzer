@@ -1,7 +1,7 @@
 streamlit==1.54.0
 
 # Core LLM + LangChain
-langchain==1.2.10
+langchain==0.3.27
 langchain-huggingface==1.2.0
 langgraph==1.0.8
 
@@ -27,3 +27,4 @@ jsonschema==4.26.0
 # Visualization (Streamlit)
 altair==6.0.0
 pydeck==0.9.1
+
